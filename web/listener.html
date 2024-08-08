@@ -49,14 +49,29 @@
 			return number.toString().padStart(2, '0');
 		}
 
-		const eventsContainer = document.getElementById('events');
+		function guid() {
+			var S4 = function () {
+				return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
+			};
+			return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
+		}
 
-		const eventSource = new EventSource('http://192.168.1.186:8080/events');
+		const eventsContainer = document.getElementById('events');
+		const urlParams = new URLSearchParams(window.location.search);
+		const matchID = urlParams.get('matchID');
+		const clientID = guid();
+		console.log(`${matchID} ${clientID}`);
+
+		const eventSource = new EventSource(`http://192.168.1.186:8080/events?matchID=${matchID}&clientID=${clientID}`);
 		eventSource.onopen = function () {
 			console.log('Connection opened');
 		};
 
 		eventSource.onmessage = handleDefault;
+		eventSource.onerror = function (error) {
+			console.log(error);
+		};
+
 		eventSource.addEventListener('START', handleStart)
 		eventSource.addEventListener('STOP', handleStop)
 		eventSource.addEventListener('RESET', handleReset)
@@ -84,10 +99,6 @@
 		function handleDefault(event) {
 			console.log(`default: ${event.data}`);
 		}
-		eventSource.onerror = function (error) {
-			console.log(error);
-			// eventSource.close();
-		};
 
 	</script>
 </body>

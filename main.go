@@ -16,6 +16,7 @@ import (
 	"github.com/tmaxmax/go-sse"
 )
 
+var masterSSEHandler = &sse.Server{}
 var sseHandler = &sse.Server{
 	Provider: &sse.Joe{
 		ReplayProvider: &sse.ValidReplayProvider{
@@ -23,11 +24,14 @@ var sseHandler = &sse.Server{
 		},
 	},
 	OnSession: func(s *sse.Session) (sse.Subscription, bool) {
-		log.Println(fmt.Sprintf("Connected with last event id: %s", s.LastEventID))
+		s.Req.ParseForm()
+		matchID := s.Req.FormValue("matchID")
+		clientID := s.Req.FormValue("clientID")
+		log.Println(fmt.Sprintf("Connected with last event id: %s, matchID: %s, clientID: %s", s.LastEventID, matchID, clientID))
 		return sse.Subscription{
 			LastEventID: s.LastEventID,
 			Client:      s,
-			Topics:      []string{sse.DefaultTopic},
+			Topics:      []string{matchID, clientID},
 		}, true
 	},
 }
@@ -42,10 +46,11 @@ type TimerState struct {
 func sendHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	msg := r.FormValue("message")
+	topic := r.FormValue("topic")
 	e := &sse.Message{}
 	e.AppendData(msg)
 	e.ID = sse.ID(time.Now().String())
-	err := sseHandler.Publish(e)
+	err := sseHandler.Publish(e, topic)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error"))
@@ -57,6 +62,7 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	msg := r.FormValue("time")
 	createTimeParam := r.FormValue("messageCreateTime")
+	matchID := r.FormValue("matchID")
 	createTime, _ := strconv.Atoi(createTimeParam)
 	startTime, _ := strconv.Atoi(r.FormValue("startTime"))
 	state := TimerState{
@@ -72,7 +78,7 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		Retry: time.Duration(1 * time.Second),
 	}
 	e.AppendData(string(json))
-	err := sseHandler.Publish(e, sse.DefaultTopic)
+	err := sseHandler.Publish(e, matchID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error"))
@@ -84,6 +90,7 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	msg := r.FormValue("time")
 	createTimeParam := r.FormValue("messageCreateTime")
+	matchID := r.FormValue("matchID")
 	createTime, _ := strconv.Atoi(createTimeParam)
 	startTime, _ := strconv.Atoi(r.FormValue("startTime"))
 	state := TimerState{
@@ -99,7 +106,7 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 		Retry: time.Duration(10 * time.Second),
 	}
 	e.AppendData(string(json))
-	err := sseHandler.Publish(e)
+	err := sseHandler.Publish(e, matchID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error"))
@@ -111,6 +118,7 @@ func resetHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	msg := r.FormValue("time")
 	createTimeParam := r.FormValue("messageCreateTime")
+	matchID := r.FormValue("matchID")
 	createTime, _ := strconv.Atoi(createTimeParam)
 	startTime, _ := strconv.Atoi(r.FormValue("startTime"))
 	state := TimerState{
@@ -126,7 +134,7 @@ func resetHandler(w http.ResponseWriter, r *http.Request) {
 		Retry: time.Duration(10 * time.Second),
 	}
 	e.AppendData(string(json))
-	err := sseHandler.Publish(e)
+	err := sseHandler.Publish(e, matchID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error"))
@@ -151,9 +159,12 @@ func main() {
 		cancel()
 		w.WriteHeader(http.StatusOK)
 	})
+
+	mux.Handle("GET /events", sseHandler)
+	mux.Handle("GET /master/events", masterSSEHandler)
+
 	mux.HandleFunc("/", homeHandler)
 	mux.HandleFunc("/listen", listenerHandler)
-	mux.Handle("GET /events", sseHandler)
 	mux.HandleFunc("POST /send", sendHandler)
 	mux.HandleFunc("POST /start", startHandler)
 	mux.HandleFunc("POST /stop", stopHandler)

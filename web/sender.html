@@ -13,6 +13,7 @@
 	<form hx-post="/send" hx-target="#messageResult" hx-swap="innerHTML">
 		<label for="message">Enter text:</label>
 		<input type="text" id="message" name="message" required>
+		<input type="text" id="topic" name="topic" required>
 		<button type="submit">Submit</button>
 	</form>
 	<div id="messageResult"></div>
@@ -22,12 +23,23 @@
 		<input type="hidden" id="timeInput" name="time" value="00:00">
 		<input type="hidden" id="messageCreateTime" name="messageCreateTime" value="">
 		<input type="hidden" id="startTime" name="startTime" value="">
+		<input readonly type="text" id="matchID" name="matchID" value="">
+		<div></div>
 		<button hx-post="/start" hx-target="#response" type="submit" id="start">Start</button>
 		<button hx-post="/stop" hx-target="#response" type="submit" id="stop" disabled>Stop</button>
 		<button hx-post="/reset" hx-target="#response" type="submit" id="reset">Reset</button>
 	</form>
 	<div id="response"></div>
 	<script>
+		function guid() {
+			var S4 = function () {
+				return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
+			};
+			return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
+		}
+
+		document.getElementById('matchID').value = guid();
+
 		let startTime;
 		let elapsedTime = 0;
 		let timerInterval;
@@ -92,6 +104,19 @@
 		startButton.addEventListener('click', start);
 		stopButton.addEventListener('click', stop);
 		resetButton.addEventListener('click', reset);
+
+		const eventSource = new EventSource('http://192.168.1.186:8080/master/events');
+		eventSource.onopen = function () {
+			console.log('Connection opened');
+		};
+
+		eventSource.onmessage = handleDefault;
+		eventSource.onerror = function (error) {
+			console.log(error);
+		};
+		function handleDefault(event) {
+			console.log("message: " + event.data);
+		}
 	</script>
 
 </body>
