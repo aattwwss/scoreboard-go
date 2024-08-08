@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>SSE Example</title>
+</head>
+
+<body>
+	<h1>Server-Sent Events Example</h1>
+	<div id="display">00:00</div>
+	<div id="events"></div>
+
+	<script>
+
+		let startTime;
+		let timerInterval;
+
+		const display = document.getElementById('display');
+
+		function start(timerState) {
+			startTime = timerState.startTime;
+			timerInterval = setInterval(updateDisplay, 1000);
+		}
+
+		function stop(timerState) {
+			clearInterval(timerInterval);
+			timerInterval = null;
+			display.textContent = timerState.timerValue;
+		}
+
+		function reset(timerState) {
+			clearInterval(timerInterval);
+			timerInterval = null;
+			display.textContent = '00:00';
+		}
+
+		function updateDisplay() {
+			const currentTime = Date.now() - startTime;
+			const minutes = Math.floor(currentTime / 60000);
+			const seconds = Math.floor((currentTime % 60000) / 1000);
+
+			const timeString = `${pad(minutes)}:${pad(seconds)}`;
+			display.textContent = timeString;
+		}
+
+		function pad(number) {
+			return number.toString().padStart(2, '0');
+		}
+
+		const eventsContainer = document.getElementById('events');
+
+		const eventSource = new EventSource('http://192.168.1.186:8080/events');
+		eventSource.onopen = function () {
+			console.log('Connection opened');
+		};
+
+		eventSource.onmessage = handleDefault;
+		eventSource.addEventListener('START', handleStart)
+		eventSource.addEventListener('STOP', handleStop)
+		eventSource.addEventListener('RESET', handleReset)
+
+		function handleClose(event) {
+			console.log('closed');
+			eventSource.close();
+		}
+
+		function handleStart(event) {
+			start(JSON.parse(event.data));
+			console.log(`start: ${event.data}`);
+		}
+
+		function handleStop(event) {
+			stop(JSON.parse(event.data));
+			console.log(`stop: ${event.data}`);
+		}
+
+		function handleReset(event) {
+			reset(JSON.parse(event.data));
+			console.log(`reset: ${event.data}`);
+		}
+
+		function handleDefault(event) {
+			console.log(`default: ${event.data}`);
+		}
+		eventSource.onerror = function (error) {
+			console.log(error);
+			// eventSource.close();
+		};
+
+	</script>
+</body>
+
+</html>

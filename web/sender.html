@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>SSE Example</title>
+	<script src="https://unpkg.com/htmx.org@2.0.1"></script>
+</head>
+
+<body>
+	<h1>Server-Sent Events Example</h1>
+	<form hx-post="/send" hx-target="#messageResult" hx-swap="innerHTML">
+		<label for="message">Enter text:</label>
+		<input type="text" id="message" name="message" required>
+		<button type="submit">Submit</button>
+	</form>
+	<div id="messageResult"></div>
+
+	<form>
+		<div id="display">00:00</div>
+		<input type="hidden" id="timeInput" name="time" value="00:00">
+		<input type="hidden" id="messageCreateTime" name="messageCreateTime" value="">
+		<input type="hidden" id="startTime" name="startTime" value="">
+		<button hx-post="/start" hx-target="#response" type="submit" id="start">Start</button>
+		<button hx-post="/stop" hx-target="#response" type="submit" id="stop" disabled>Stop</button>
+		<button hx-post="/reset" hx-target="#response" type="submit" id="reset">Reset</button>
+	</form>
+	<div id="response"></div>
+	<script>
+		let startTime;
+		let elapsedTime = 0;
+		let timerInterval;
+
+		const display = document.getElementById('display');
+		const startButton = document.getElementById('start');
+		const stopButton = document.getElementById('stop');
+		const resetButton = document.getElementById('reset');
+
+		function start() {
+			if (!timerInterval) {
+				now = Date.now();
+				startTime = now - elapsedTime;
+				timerInterval = setInterval(updateDisplay, 1000);
+				startButton.disabled = true;
+				stopButton.disabled = false;
+				document.getElementById('messageCreateTime').value = now;
+				document.getElementById('startTime').value = startTime;
+			}
+		}
+
+		function stop() {
+			if (timerInterval) {
+				now = Date.now();
+				clearInterval(timerInterval);
+				elapsedTime = now - startTime;
+				timerInterval = null;
+				stopButton.disabled = true;
+				startButton.disabled = false;
+				document.getElementById('messageCreateTime').value = now;
+				document.getElementById('startTime').value = startTime;
+			}
+		}
+
+		function reset() {
+			now = Date.now();
+			clearInterval(timerInterval);
+			timerInterval = null;
+			elapsedTime = 0;
+			display.textContent = '00:00';
+			document.getElementById('timeInput').value = '00:00';
+			startButton.disabled = false;
+			stopButton.disabled = true;
+			document.getElementById('messageCreateTime').value = now;
+			document.getElementById('startTime').value = startTime;
+		}
+
+		function updateDisplay() {
+			const currentTime = Date.now() - startTime;
+			const minutes = Math.floor(currentTime / 60000);
+			const seconds = Math.floor((currentTime % 60000) / 1000);
+
+			const timeString = `${pad(minutes)}:${pad(seconds)}`;
+			display.textContent = timeString;
+			document.getElementById('timeInput').value = timeString;
+		}
+
+		function pad(number) {
+			return number.toString().padStart(2, '0');
+		}
+
+		startButton.addEventListener('click', start);
+		stopButton.addEventListener('click', stop);
+		resetButton.addEventListener('click', reset);
+	</script>
+
+</body>
+
+</html>
