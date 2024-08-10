@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tmaxmax/go-sse"
 )
 
@@ -26,7 +27,8 @@ var sseHandler = &sse.Server{
 	OnSession: func(s *sse.Session) (sse.Subscription, bool) {
 		s.Req.ParseForm()
 		matchID := s.Req.FormValue("matchID")
-		clientID := s.Req.FormValue("clientID")
+		// clientID := s.Req.FormValue("clientID")
+		clientID := uuid.New().String()
 		log.Println(fmt.Sprintf("Connected with last event id: %s, matchID: %s, clientID: %s", s.LastEventID, matchID, clientID))
 		return sse.Subscription{
 			LastEventID: s.LastEventID,

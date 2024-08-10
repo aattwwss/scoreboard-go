@@ -49,20 +49,12 @@
 			return number.toString().padStart(2, '0');
 		}
 
-		function guid() {
-			var S4 = function () {
-				return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
-			};
-			return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
-		}
-
 		const eventsContainer = document.getElementById('events');
 		const urlParams = new URLSearchParams(window.location.search);
 		const matchID = urlParams.get('matchID');
-		const clientID = guid();
-		console.log(`${matchID} ${clientID}`);
+		console.log(`matchID: ${matchID}`);
 
-		const eventSource = new EventSource(`http://192.168.1.186:8080/events?matchID=${matchID}&clientID=${clientID}`);
+		const eventSource = new EventSource(`http://192.168.1.186:8080/events?matchID=${matchID}`);
 		eventSource.onopen = function () {
 			console.log('Connection opened');
 		};
