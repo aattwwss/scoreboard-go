@@ -26,7 +26,6 @@ var newClientChan = make(chan NewClientMessage)
 
 var lastMatchMessage = map[string]*sse.Message{}
 
-var masterSSEHandler = &sse.Server{}
 var sseHandler = &sse.Server{
 	Provider: &sse.Joe{
 		ReplayProvider: &sse.ValidReplayProvider{
@@ -139,15 +138,12 @@ func main() {
 	})
 
 	mux.Handle("GET /events", sseHandler)
-	mux.Handle("GET /master/events", masterSSEHandler)
 
 	mux.HandleFunc("/", homeHandler)
 	mux.HandleFunc("POST /match/{action}", actionHandler)
 	mux.HandleFunc("POST /debug/send", sendHandler)
 	mux.HandleFunc("/listen", listenerHandler)
-	// mux.HandleFunc("POST /start", startHandler)
-	// mux.HandleFunc("POST /stop", stopHandler)
-	// mux.HandleFunc("POST /reset", resetHandler)
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	})
