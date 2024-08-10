@@ -9,13 +9,22 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/tmaxmax/go-sse"
 )
+
+type NewClientMessage struct {
+	MatchID  string
+	ClientID string
+}
+
+var newClientChan = make(chan NewClientMessage)
+
+var lastMatchMessage = map[string]*sse.Message{}
 
 var masterSSEHandler = &sse.Server{}
 var sseHandler = &sse.Server{
@@ -30,6 +39,12 @@ var sseHandler = &sse.Server{
 		// clientID := s.Req.FormValue("clientID")
 		clientID := uuid.New().String()
 		log.Println(fmt.Sprintf("Connected with last event id: %s, matchID: %s, clientID: %s", s.LastEventID, matchID, clientID))
+		defer func() {
+			newClientChan <- NewClientMessage{
+				MatchID:  matchID,
+				ClientID: clientID,
+			}
+		}()
 		return sse.Subscription{
 			LastEventID: s.LastEventID,
 			Client:      s,
@@ -60,88 +75,35 @@ func sendHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func startHandler(w http.ResponseWriter, r *http.Request) {
+func actionHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	msg := r.FormValue("time")
-	createTimeParam := r.FormValue("messageCreateTime")
 	matchID := r.FormValue("matchID")
-	createTime, _ := strconv.Atoi(createTimeParam)
-	startTime, _ := strconv.Atoi(r.FormValue("startTime"))
-	state := TimerState{
-		MessageCreateTime: createTime,
-		StartTime:         startTime,
-		TimerValue:        msg,
-		Action:            "START",
+	action := strings.ToUpper(r.PathValue("action"))
+	formData := map[string]string{
+		"action": action,
 	}
-	json, _ := json.Marshal(state)
+	for key, values := range r.Form {
+		if len(values) > 0 {
+			formData[key] = values[0]
+		}
+	}
+
+	jsonData, _ := json.Marshal(formData)
+	messageID, _ := uuid.NewV7()
 	e := &sse.Message{
-		ID:    sse.ID(createTimeParam),
-		Type:  sse.Type("START"),
+		ID:    sse.ID(messageID.String()),
+		Type:  sse.Type(action),
 		Retry: time.Duration(1 * time.Second),
 	}
-	e.AppendData(string(json))
+	e.AppendData(string(jsonData))
 	err := sseHandler.Publish(e, matchID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error"))
 	}
-	w.Write([]byte("STARTED"))
-}
-
-func stopHandler(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	msg := r.FormValue("time")
-	createTimeParam := r.FormValue("messageCreateTime")
-	matchID := r.FormValue("matchID")
-	createTime, _ := strconv.Atoi(createTimeParam)
-	startTime, _ := strconv.Atoi(r.FormValue("startTime"))
-	state := TimerState{
-		MessageCreateTime: createTime,
-		StartTime:         startTime,
-		TimerValue:        msg,
-		Action:            "STOP",
-	}
-	json, _ := json.Marshal(state)
-	e := &sse.Message{
-		ID:    sse.ID(createTimeParam),
-		Type:  sse.Type("STOP"),
-		Retry: time.Duration(10 * time.Second),
-	}
-	e.AppendData(string(json))
-	err := sseHandler.Publish(e, matchID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error"))
-	}
-	w.Write([]byte("STOPPED"))
-}
-
-func resetHandler(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	msg := r.FormValue("time")
-	createTimeParam := r.FormValue("messageCreateTime")
-	matchID := r.FormValue("matchID")
-	createTime, _ := strconv.Atoi(createTimeParam)
-	startTime, _ := strconv.Atoi(r.FormValue("startTime"))
-	state := TimerState{
-		MessageCreateTime: createTime,
-		StartTime:         startTime,
-		TimerValue:        msg,
-		Action:            "RESET",
-	}
-	json, _ := json.Marshal(state)
-	e := &sse.Message{
-		ID:    sse.ID(createTimeParam),
-		Type:  sse.Type("RESET"),
-		Retry: time.Duration(10 * time.Second),
-	}
-	e.AppendData(string(json))
-	err := sseHandler.Publish(e, matchID)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error"))
-	}
-	w.Write([]byte("RESETED"))
+	log.Println(fmt.Sprintf("actionHandler data: %s", string(jsonData)))
+	lastMatchMessage[matchID] = e
+	w.Write([]byte(action))
 }
 
 func listenerHandler(w http.ResponseWriter, r *http.Request) {
@@ -152,9 +114,23 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "web/sender.html")
 }
 
+func initNewClient(ch <-chan NewClientMessage) {
+	for message := range ch {
+		prevData, ok := lastMatchMessage[message.MatchID]
+		if ok {
+			messageID, _ := uuid.NewV7()
+			prevData.ID = sse.ID(messageID.String())
+			log.Println(fmt.Sprintf("Replaying last event for matchID: %s to clientID: %s with data: %v", message.MatchID, message.ClientID, *prevData))
+			sseHandler.Publish(prevData, message.ClientID)
+		}
+	}
+}
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	go initNewClient(newClientChan)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/stop", func(w http.ResponseWriter, _ *http.Request) {
@@ -166,11 +142,12 @@ func main() {
 	mux.Handle("GET /master/events", masterSSEHandler)
 
 	mux.HandleFunc("/", homeHandler)
+	mux.HandleFunc("POST /match/{action}", actionHandler)
+	mux.HandleFunc("POST /debug/send", sendHandler)
 	mux.HandleFunc("/listen", listenerHandler)
-	mux.HandleFunc("POST /send", sendHandler)
-	mux.HandleFunc("POST /start", startHandler)
-	mux.HandleFunc("POST /stop", stopHandler)
-	mux.HandleFunc("POST /reset", resetHandler)
+	// mux.HandleFunc("POST /start", startHandler)
+	// mux.HandleFunc("POST /stop", stopHandler)
+	// mux.HandleFunc("POST /reset", resetHandler)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	})

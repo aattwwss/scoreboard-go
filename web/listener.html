@@ -16,24 +16,28 @@
 
 		let startTime;
 		let timerInterval;
+		let initialised = false;
 
 		const display = document.getElementById('display');
 
 		function start(timerState) {
 			startTime = timerState.startTime;
 			timerInterval = setInterval(updateDisplay, 1000);
+			initialised = true;
 		}
 
 		function stop(timerState) {
 			clearInterval(timerInterval);
 			timerInterval = null;
-			display.textContent = timerState.timerValue;
+			display.textContent = timerState.displayTime;
+			initialised = true;
 		}
 
 		function reset(timerState) {
 			clearInterval(timerInterval);
 			timerInterval = null;
 			display.textContent = '00:00';
+			initialised = true;
 		}
 
 		function updateDisplay() {
@@ -67,6 +71,7 @@
 		eventSource.addEventListener('START', handleStart)
 		eventSource.addEventListener('STOP', handleStop)
 		eventSource.addEventListener('RESET', handleReset)
+		eventSource.addEventListener('INIT', handleInit)
 
 		function handleClose(event) {
 			console.log('closed');
@@ -90,6 +95,26 @@
 
 		function handleDefault(event) {
 			console.log(`default: ${event.data}`);
+		}
+
+		function handleInit(event) {
+			if (!initialised) {
+				console.log(`init: ${event.data}`);
+				let data = JSON.parse(event.data);
+				switch (data.action) {
+					case 'START':
+						start(data);
+						break;
+					case 'STOP':
+						stop(data);
+						break;
+					case 'RESET':
+						reset(data);
+						break;
+					default:
+						console.log("unknown init event");
+				}
+			}
 		}
 
 	</script>
