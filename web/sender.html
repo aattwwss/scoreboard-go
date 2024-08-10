@@ -50,6 +50,7 @@
 		const resetButton = document.getElementById('reset');
 
 		function start() {
+			console.log("START!");
 			if (!timerInterval) {
 				now = Date.now();
 				startTime = now - elapsedTime;
@@ -62,6 +63,7 @@
 		}
 
 		function stop() {
+			console.log("STOP");
 			if (timerInterval) {
 				now = Date.now();
 				clearInterval(timerInterval);
@@ -75,6 +77,7 @@
 		}
 
 		function reset() {
+			console.log("RESET");
 			now = Date.now();
 			clearInterval(timerInterval);
 			timerInterval = null;
@@ -102,6 +105,32 @@
 		startButton.addEventListener('click', start);
 		stopButton.addEventListener('click', stop);
 		resetButton.addEventListener('click', reset);
+
+		let retryTimeoutId = null;
+
+		document.addEventListener('htmx:afterRequest', function (event) {
+			// Clear any existing retry timeout
+			if (retryTimeoutId) {
+				clearTimeout(retryTimeoutId);
+			}
+		})
+		document.addEventListener('htmx:afterRequest', function (event) {
+			if (event.detail.xhr.status === 0) {
+				let triggeringElement = event.detail.elt;
+
+				// Schedule a new retry
+				retryTimeoutId = setTimeout(function () {
+					// Only retry if this is still the latest request
+					console.log(`Retrying latest failed request...`);
+					// console.log(event.detail);
+					const temp = triggeringElement.disabled;
+					triggeringElement.disabled = false;
+					// htmx.trigger(triggeringElement, 'retryRequest');
+					triggeringElement.click();
+					triggeringElement.disabled = temp;
+				}, 2000); // 2-second delay between retries
+			}
+		});
 
 	</script>
 
