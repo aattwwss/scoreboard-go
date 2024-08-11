@@ -21,12 +21,14 @@
 	<div id="messageResult"></div>
 
 	<form>
-		<input type="text" id="displayTime" name="displayTime" value="00:00"><br>
-		<input readonly type="text" id="matchID" name="matchID" value="">
+		<input type="text" id="display-time" name="displayTime" value="00:00"><br>
+		<input type="text" id="home-score" name="homeScore" value="01"><br>
+		<input type="text" id="away-score" name="awayScore" value="033"><br>
+		<input readonly type="text" id="match-ID" name="matchID" value=""><br>
 
-		<input type="hidden" id="messageCreateTime" name="messageCreateTime" value="">
-		<input type="hidden" id="startTime" name="startTime" value="">
-		<br>
+		<input type="hidden" id="message-create-time" name="messageCreateTime" value="">
+		<input type="hidden" id="start-time" name="startTime" value="">
+
 		<button hx-post="/api/match/start" hx-target="#response" type="submit" id="start">Start</button>
 		<button hx-post="/api/match/stop" hx-target="#response" type="submit" id="stop" disabled>Stop</button>
 		<button hx-post="/api/match/reset" hx-target="#response" type="submit" id="reset">Reset</button>
@@ -40,20 +42,20 @@
 			return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
 		}
 
-		document.getElementById('matchID').value = guid();
+		document.getElementById('match-ID').value = guid();
 
 		// TODO: store all these in localstorage to preserve the state upon refresh
 		let startTime;
 		let elapsedTime = 0;
 		let timerInterval;
 
-		const displayTime = document.getElementById('displayTime');
+		const displayTime = document.getElementById('display-time');
 		const startButton = document.getElementById('start');
 		const stopButton = document.getElementById('stop');
 		const resetButton = document.getElementById('reset');
 
-		const messageCreateTimeInput = document.getElementById('messageCreateTime');
-		const startTimeInput = document.getElementById('startTime');
+		const messageCreateTimeInput = document.getElementById('message-create-time');
+		const startTimeInput = document.getElementById('start-time');
 
 		function start() {
 			console.log("START!");

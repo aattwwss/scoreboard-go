@@ -10,7 +10,8 @@
 <body>
 	<h1>Server-Sent Events Example</h1>
 	<div id="display">00:00</div>
-	<div id="events"></div>
+	<div id="home-score">0</div>
+	<div id="away-score">0</div>
 
 	<script>
 
@@ -19,6 +20,8 @@
 		let initialised = false;
 
 		const display = document.getElementById('display');
+		const homeScoreEle = document.getElementById('home-score');
+		const awayScoreEle = document.getElementById('away-score');
 
 		function start(timerState) {
 			startTime = timerState.startTime;
@@ -69,10 +72,19 @@
 			console.log(error);
 		};
 
-		eventSource.addEventListener('START', handleStart)
-		eventSource.addEventListener('STOP', handleStop)
-		eventSource.addEventListener('RESET', handleReset)
+		eventSource.addEventListener('START', handler(start))
+		eventSource.addEventListener('STOP', handler(stop))
+		eventSource.addEventListener('RESET', handler(reset))
 		eventSource.addEventListener('INIT', handleInit)
+
+		function handler(eventHandler) {
+			return function (event) {
+				const json = JSON.parse(event.data);
+				homeScoreEle.textContent = json.homeScore;
+				awayScoreEle.textContent = json.awayScore;
+				eventHandler(json);
+			}
+		}
 
 		function handleClose(event) {
 			console.log('closed');
