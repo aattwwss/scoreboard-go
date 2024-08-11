@@ -11,7 +11,7 @@
 <body>
 	<h1>Server-Sent Events Example</h1>
 	<div style="display: none;">
-		<form hx-post="/debug/send" hx-target="#messageResult" hx-swap="innerHTML">
+		<form hx-post="/send" hx-target="#messageResult" hx-swap="innerHTML">
 			<label for="message">Enter text:</label>
 			<input type="text" id="message" name="message" required>
 			<input type="text" id="topic" name="topic" required>
@@ -22,13 +22,14 @@
 
 	<form>
 		<input type="text" id="displayTime" name="displayTime" value="00:00"><br>
+		<input readonly type="text" id="matchID" name="matchID" value="">
+
 		<input type="hidden" id="messageCreateTime" name="messageCreateTime" value="">
 		<input type="hidden" id="startTime" name="startTime" value="">
-		<input readonly type="text" id="matchID" name="matchID" value="">
 		<br>
-		<button hx-post="/match/start" hx-target="#response" type="submit" id="start">Start</button>
-		<button hx-post="/match/stop" hx-target="#response" type="submit" id="stop" disabled>Stop</button>
-		<button hx-post="/match/reset" hx-target="#response" type="submit" id="reset">Reset</button>
+		<button hx-post="/api/match/start" hx-target="#response" type="submit" id="start">Start</button>
+		<button hx-post="/api/match/stop" hx-target="#response" type="submit" id="stop" disabled>Stop</button>
+		<button hx-post="/api/match/reset" hx-target="#response" type="submit" id="reset">Reset</button>
 	</form>
 	<div id="response"></div>
 	<script>
@@ -59,7 +60,7 @@
 			if (!timerInterval) {
 				now = Date.now();
 				startTime = now - elapsedTime;
-				timerInterval = setInterval(updateDisplay, 1000);
+				timerInterval = setInterval(updateDisplay, 1);
 				startButton.disabled = true;
 				stopButton.disabled = false;
 				messageCreateTimeInput.value = now;
@@ -68,7 +69,7 @@
 		}
 
 		function stop() {
-			console.log("STOP");
+			console.log("STOP!");
 			if (timerInterval) {
 				now = Date.now();
 				clearInterval(timerInterval);
@@ -82,7 +83,7 @@
 		}
 
 		function reset() {
-			console.log("RESET");
+			console.log("RESET!");
 			now = Date.now();
 			clearInterval(timerInterval);
 			timerInterval = null;
@@ -95,16 +96,18 @@
 		}
 
 		function updateDisplay() {
-			const currentTime = Date.now() - startTime;
-			const minutes = Math.floor(currentTime / 60000);
-			const seconds = Math.floor((currentTime % 60000) / 1000);
+			const elapsedTime = Date.now() - startTime;
+			console.log(elapsedTime);
+			const minutes = Math.floor(elapsedTime / 60000);
+			const seconds = Math.floor((elapsedTime % 60000) / 1000);
+			const milliseconds = Math.floor((elapsedTime % 1000) / 10);
 
-			const timeString = `${pad(minutes)}:${pad(seconds)}`;
+			const timeString = `${pad(minutes, 2)}:${pad(seconds, 2)}:${pad(milliseconds, 2)}`;
 			displayTime.value = timeString;
 		}
 
-		function pad(number) {
-			return number.toString().padStart(2, '0');
+		function pad(number, n) {
+			return number.toString().padStart(n, '0');
 		}
 
 		startButton.addEventListener('click', start);
@@ -114,12 +117,13 @@
 		let retryTimeoutId = null;
 
 		document.addEventListener('htmx:afterRequest', function (event) {
-			// Clear any existing retry timeout
+			// Clear any existing retry timeout since we only want to retry the newest request
 			if (retryTimeoutId) {
 				clearTimeout(retryTimeoutId);
 			}
 		})
 		document.addEventListener('htmx:afterRequest', function (event) {
+			// TODO: Should only retry requests that impact the match state
 			if (event.detail.xhr.status === 0) {
 				let triggeringElement = event.detail.elt;
 

@@ -132,6 +132,12 @@ func main() {
 	go initNewClient(newClientChan)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("OK"))
+	})
+
+	fs := http.FileServer(http.Dir("./static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 	mux.HandleFunc("/stop", func(w http.ResponseWriter, _ *http.Request) {
 		cancel()
 		w.WriteHeader(http.StatusOK)
@@ -140,17 +146,13 @@ func main() {
 	mux.Handle("GET /events", sseHandler)
 
 	mux.HandleFunc("/", homeHandler)
-	mux.HandleFunc("POST /match/{action}", actionHandler)
-	mux.HandleFunc("POST /debug/send", sendHandler)
-	mux.HandleFunc("/listen", listenerHandler)
-
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
+	mux.HandleFunc("POST /api/match/{action}", actionHandler)
+	mux.HandleFunc("POST /api/send", sendHandler)
+	mux.HandleFunc("GET /listen", listenerHandler)
 
 	s := &http.Server{
 		Addr:              "0.0.0.0:8080",
-		ReadHeaderTimeout: time.Second * 10,
+		ReadHeaderTimeout: time.Second * 1,
 		Handler:           mux,
 	}
 	s.RegisterOnShutdown(func() {

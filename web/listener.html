@@ -22,7 +22,7 @@
 
 		function start(timerState) {
 			startTime = timerState.startTime;
-			timerInterval = setInterval(updateDisplay, 1000);
+			timerInterval = setInterval(updateDisplay, 1);
 			initialised = true;
 		}
 
@@ -41,11 +41,12 @@
 		}
 
 		function updateDisplay() {
-			const currentTime = Date.now() - startTime;
-			const minutes = Math.floor(currentTime / 60000);
-			const seconds = Math.floor((currentTime % 60000) / 1000);
+			const elapsedTime = Date.now() - startTime;
+			const minutes = Math.floor(elapsedTime / 60000);
+			const seconds = Math.floor((elapsedTime % 60000) / 1000);
+			const milliseconds = Math.floor((elapsedTime % 1000) / 10);
 
-			const timeString = `${pad(minutes)}:${pad(seconds)}`;
+			const timeString = `${pad(minutes)}:${pad(seconds)}:${pad(milliseconds)}`;
 			display.textContent = timeString;
 		}
 
