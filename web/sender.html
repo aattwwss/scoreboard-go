@@ -10,12 +10,14 @@
 
 <body>
 	<h1>Server-Sent Events Example</h1>
-	<form hx-post="/debug/send" hx-target="#messageResult" hx-swap="innerHTML">
-		<label for="message">Enter text:</label>
-		<input type="text" id="message" name="message" required>
-		<input type="text" id="topic" name="topic" required>
-		<button type="submit">Submit</button>
-	</form>
+	<div style="display: none;">
+		<form hx-post="/debug/send" hx-target="#messageResult" hx-swap="innerHTML">
+			<label for="message">Enter text:</label>
+			<input type="text" id="message" name="message" required>
+			<input type="text" id="topic" name="topic" required>
+			<button type="submit">Submit</button>
+		</form>
+	</div>
 	<div id="messageResult"></div>
 
 	<form>
@@ -49,6 +51,9 @@
 		const stopButton = document.getElementById('stop');
 		const resetButton = document.getElementById('reset');
 
+		const messageCreateTimeInput = document.getElementById('messageCreateTime');
+		const startTimeInput = document.getElementById('startTime');
+
 		function start() {
 			console.log("START!");
 			if (!timerInterval) {
@@ -57,8 +62,8 @@
 				timerInterval = setInterval(updateDisplay, 1000);
 				startButton.disabled = true;
 				stopButton.disabled = false;
-				document.getElementById('messageCreateTime').value = now;
-				document.getElementById('startTime').value = startTime;
+				messageCreateTimeInput.value = now;
+				startTimeInput.value = startTime;
 			}
 		}
 
@@ -71,8 +76,8 @@
 				timerInterval = null;
 				stopButton.disabled = true;
 				startButton.disabled = false;
-				document.getElementById('messageCreateTime').value = now;
-				document.getElementById('startTime').value = startTime;
+				messageCreateTimeInput.value = now;
+				startTimeInput.value = startTime;
 			}
 		}
 
@@ -85,8 +90,8 @@
 			displayTime.value = '00:00'
 			startButton.disabled = false;
 			stopButton.disabled = true;
-			document.getElementById('messageCreateTime').value = now;
-			document.getElementById('startTime').value = startTime;
+			messageCreateTimeInput.value = now;
+			startTimeInput.value = startTime;
 		}
 
 		function updateDisplay() {
