@@ -9,8 +9,12 @@
 
 <body>
 	<h1>Server-Sent Events Example</h1>
+	<div id="match-name"> </div>
 	<div id="display">00:00</div>
+
+	<div id="home-name"> </div>
 	<div id="home-score">0</div>
+	<div id="away-name"> </div>
 	<div id="away-score">0</div>
 
 	<script>
@@ -19,8 +23,11 @@
 		let timerInterval;
 		let initialised = false;
 
+		const matchNameEle = document.getElementById('match-name');
 		const display = document.getElementById('display');
+		const homeNameEle = document.getElementById('home-name');
 		const homeScoreEle = document.getElementById('home-score');
+		const awayNameEle = document.getElementById('away-name');
 		const awayScoreEle = document.getElementById('away-score');
 
 		function start(timerState) {
@@ -32,14 +39,12 @@
 		function stop(timerState) {
 			clearInterval(timerInterval);
 			timerInterval = null;
-			display.textContent = timerState.displayTime;
 			initialised = true;
 		}
 
 		function reset(timerState) {
 			clearInterval(timerInterval);
 			timerInterval = null;
-			display.textContent = '00:00';
 			initialised = true;
 		}
 
@@ -79,9 +84,14 @@
 
 		function handler(eventHandler) {
 			return function (event) {
+				console.log(`${event.type}: ${event.data}`);
 				const json = JSON.parse(event.data);
+				homeNameEle.textContent = json.homeName;
 				homeScoreEle.textContent = json.homeScore;
+				awayNameEle.textContent = json.awayName;
 				awayScoreEle.textContent = json.awayScore;
+				display.textContent = json.displayTime;
+				matchNameEle.textContent = json.matchName;
 				eventHandler(json);
 			}
 		}
