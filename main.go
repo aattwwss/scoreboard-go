@@ -2,15 +2,18 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"text/template"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +24,12 @@ type NewClientMessage struct {
 	MatchID  string
 	ClientID string
 }
+
+var (
+	//go:embed web
+	web         embed.FS
+	adjustedWeb fs.FS
+)
 
 var newClientChan = make(chan NewClientMessage)
 
@@ -106,14 +115,19 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listenerHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "web/listener.html")
+	tmpl, _ := template.ParseFS(adjustedWeb, "base.html", "listener.html")
+	tmpl.Execute(w, nil)
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "web/sender.html")
+	tmpl, _ := template.ParseFS(adjustedWeb, "base.html", "sender.html")
+
+	tmpl.Execute(w, map[string]string{
+		"MatchID": uuid.New().String(),
+	})
 }
 
-func initNewClient(ch <-chan NewClientMessage) {
+func initNewSSEClient(ch <-chan NewClientMessage) {
 	for message := range ch {
 		prevData, ok := lastMatchMessage[message.MatchID]
 		if ok {
@@ -125,11 +139,31 @@ func initNewClient(ch <-chan NewClientMessage) {
 	}
 }
 
+func useMiddleware(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
+	for _, m := range middlewares {
+		h = m(h)
+	}
+	return h
+}
+
+func recoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("Panic: %v", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	go initNewClient(newClientChan)
+	adjustedWeb, _ = fs.Sub(web, "web")
+	go initNewSSEClient(newClientChan)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +187,7 @@ func main() {
 	s := &http.Server{
 		Addr:              "0.0.0.0:8080",
 		ReadHeaderTimeout: time.Second * 1,
-		Handler:           mux,
+		Handler:           useMiddleware(mux, recoveryMiddleware),
 	}
 	s.RegisterOnShutdown(func() {
 		e := &sse.Message{Type: sse.Type("close")}

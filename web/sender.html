@@ -1,153 +1,132 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>SSE Example</title>
-	<script src="https://unpkg.com/htmx.org@2.0.1"></script>
-</head>
-
-<body>
-	<h1>Server-Sent Events Example</h1>
-	<div style="display: none;">
-		<form hx-post="/send" hx-target="#messageResult" hx-swap="innerHTML">
-			<label for="message">Enter text:</label>
-			<input type="text" id="message" name="message" required>
-			<input type="text" id="topic" name="topic" required>
-			<button type="submit">Submit</button>
-		</form>
-	</div>
-	<div id="messageResult"></div>
-
-	<form>
-		<input type="text" id="match-name" name="matchName" value="Match RWS"><br>
-		<input type="text" id="display-time" name="displayTime" value="00:00"><br>
-		<input type="text" id="home-name" name="homeName" value="Team ABC"><br>
-		<input type="text" id="home-score" name="homeScore" value="01"><br>
-		<input type="text" id="away-name" name="awayName" value="Team XYZ"><br>
-		<input type="text" id="away-score" name="awayScore" value="033"><br>
-		<input readonly type="text" id="match-ID" name="matchID" value=""><br>
-
-		<input type="hidden" id="message-create-time" name="messageCreateTime" value="">
-		<input type="hidden" id="start-time" name="startTime" value="">
-
-		<button hx-post="/api/match/start" hx-target="#response" type="submit" id="start">Start</button>
-		<button hx-post="/api/match/stop" hx-target="#response" type="submit" id="stop" disabled>Stop</button>
-		<button hx-post="/api/match/reset" hx-target="#response" type="submit" id="reset">Reset</button>
+{{block "content" .}}
+<h1>Server-Sent Events Example</h1>
+<div style="display: none;">
+	<form hx-post="/send" hx-target="#messageResult" hx-swap="innerHTML">
+		<label for="message">Enter text:</label>
+		<input type="text" id="message" name="message" required>
+		<input type="text" id="topic" name="topic" required>
+		<button type="submit">Submit</button>
 	</form>
-	<div id="response"></div>
-	<script>
-		function guid() {
-			var S4 = function () {
-				return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
-			};
-			return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
-		}
+</div>
+<div id="messageResult"></div>
 
-		document.getElementById('match-ID').value = guid();
+<form>
+	<input type="text" id="match-name" name="matchName" value="Match RWS"><br>
+	<input type="text" id="display-time" name="displayTime" value="00:00"><br>
+	<input type="text" id="home-name" name="homeName" value="Team ABC"><br>
+	<input type="text" id="home-score" name="homeScore" value="01"><br>
+	<input type="text" id="away-name" name="awayName" value="Team XYZ"><br>
+	<input type="text" id="away-score" name="awayScore" value="033"><br>
+	<input readonly type="text" id="match-ID" name="matchID" value="{{.MatchID}}"><br>
 
-		// TODO: store all these in localstorage to preserve the state upon refresh
-		let startTime;
-		let elapsedTime = 0;
-		let timerInterval;
+	<input type="hidden" id="message-create-time" name="messageCreateTime" value="">
+	<input type="hidden" id="start-time" name="startTime" value="">
 
-		const displayTime = document.getElementById('display-time');
-		const startButton = document.getElementById('start');
-		const stopButton = document.getElementById('stop');
-		const resetButton = document.getElementById('reset');
+	<button hx-post="/api/match/start" hx-target="#response" type="submit" id="start">Start</button>
+	<button hx-post="/api/match/stop" hx-target="#response" type="submit" id="stop" disabled>Stop</button>
+	<button hx-post="/api/match/reset" hx-target="#response" type="submit" id="reset">Reset</button>
+</form>
+<div id="response"></div>
+<script>
 
-		const messageCreateTimeInput = document.getElementById('message-create-time');
-		const startTimeInput = document.getElementById('start-time');
+	// TODO: store all these in localstorage to preserve the state upon refresh
+	let startTime;
+	let elapsedTime = 0;
+	let timerInterval;
 
-		function start() {
-			console.log("START!");
-			if (!timerInterval) {
-				now = Date.now();
-				startTime = now - elapsedTime;
-				timerInterval = setInterval(updateDisplay, 1);
-				startButton.disabled = true;
-				stopButton.disabled = false;
-				messageCreateTimeInput.value = now;
-				startTimeInput.value = startTime;
-			}
-		}
+	const displayTime = document.getElementById('display-time');
+	const startButton = document.getElementById('start');
+	const stopButton = document.getElementById('stop');
+	const resetButton = document.getElementById('reset');
 
-		function stop() {
-			console.log("STOP!");
-			if (timerInterval) {
-				now = Date.now();
-				clearInterval(timerInterval);
-				elapsedTime = now - startTime;
-				timerInterval = null;
-				stopButton.disabled = true;
-				startButton.disabled = false;
-				messageCreateTimeInput.value = now;
-				startTimeInput.value = startTime;
-			}
-		}
+	const messageCreateTimeInput = document.getElementById('message-create-time');
+	const startTimeInput = document.getElementById('start-time');
 
-		function reset() {
-			console.log("RESET!");
+	function start() {
+		console.log("START!");
+		if (!timerInterval) {
 			now = Date.now();
-			clearInterval(timerInterval);
-			timerInterval = null;
-			elapsedTime = 0;
-			displayTime.value = '00:00'
-			startButton.disabled = false;
-			stopButton.disabled = true;
+			startTime = now - elapsedTime;
+			timerInterval = setInterval(updateDisplay, 1);
+			startButton.disabled = true;
+			stopButton.disabled = false;
 			messageCreateTimeInput.value = now;
 			startTimeInput.value = startTime;
 		}
+	}
 
-		function updateDisplay() {
-			const elapsedTime = Date.now() - startTime;
-			console.log(elapsedTime);
-			const minutes = Math.floor(elapsedTime / 60000);
-			const seconds = Math.floor((elapsedTime % 60000) / 1000);
-			const milliseconds = Math.floor((elapsedTime % 1000) / 10);
-
-			const timeString = `${pad(minutes, 2)}:${pad(seconds, 2)}:${pad(milliseconds, 2)}`;
-			displayTime.value = timeString;
+	function stop() {
+		console.log("STOP!");
+		if (timerInterval) {
+			now = Date.now();
+			clearInterval(timerInterval);
+			elapsedTime = now - startTime;
+			timerInterval = null;
+			stopButton.disabled = true;
+			startButton.disabled = false;
+			messageCreateTimeInput.value = now;
+			startTimeInput.value = startTime;
 		}
+	}
 
-		function pad(number, n) {
-			return number.toString().padStart(n, '0');
+	function reset() {
+		console.log("RESET!");
+		now = Date.now();
+		clearInterval(timerInterval);
+		timerInterval = null;
+		elapsedTime = 0;
+		displayTime.value = '00:00'
+		startButton.disabled = false;
+		stopButton.disabled = true;
+		messageCreateTimeInput.value = now;
+		startTimeInput.value = startTime;
+	}
+
+	function updateDisplay() {
+		const elapsedTime = Date.now() - startTime;
+		console.log(elapsedTime);
+		const minutes = Math.floor(elapsedTime / 60000);
+		const seconds = Math.floor((elapsedTime % 60000) / 1000);
+		const milliseconds = Math.floor((elapsedTime % 1000) / 10);
+
+		const timeString = `${pad(minutes, 2)}:${pad(seconds, 2)}:${pad(milliseconds, 2)}`;
+		displayTime.value = timeString;
+	}
+
+	function pad(number, n) {
+		return number.toString().padStart(n, '0');
+	}
+
+	startButton.addEventListener('click', start);
+	stopButton.addEventListener('click', stop);
+	resetButton.addEventListener('click', reset);
+
+	let retryTimeoutId = null;
+
+	document.addEventListener('htmx:afterRequest', function (event) {
+		// Clear any existing retry timeout since we only want to retry the newest request
+		if (retryTimeoutId) {
+			clearTimeout(retryTimeoutId);
 		}
+	})
+	document.addEventListener('htmx:afterRequest', function (event) {
+		// TODO: Should only retry requests that impact the match state
+		if (event.detail.xhr.status === 0) {
+			let triggeringElement = event.detail.elt;
 
-		startButton.addEventListener('click', start);
-		stopButton.addEventListener('click', stop);
-		resetButton.addEventListener('click', reset);
+			// Schedule a new retry
+			retryTimeoutId = setTimeout(function () {
+				// Only retry if this is still the latest request
+				console.log(`Retrying latest failed request...`);
+				// console.log(event.detail);
+				const temp = triggeringElement.disabled;
+				triggeringElement.disabled = false;
+				// htmx.trigger(triggeringElement, 'retryRequest');
+				triggeringElement.click();
+				triggeringElement.disabled = temp;
+			}, 2000); // 2-second delay between retries
+		}
+	});
 
-		let retryTimeoutId = null;
-
-		document.addEventListener('htmx:afterRequest', function (event) {
-			// Clear any existing retry timeout since we only want to retry the newest request
-			if (retryTimeoutId) {
-				clearTimeout(retryTimeoutId);
-			}
-		})
-		document.addEventListener('htmx:afterRequest', function (event) {
-			// TODO: Should only retry requests that impact the match state
-			if (event.detail.xhr.status === 0) {
-				let triggeringElement = event.detail.elt;
-
-				// Schedule a new retry
-				retryTimeoutId = setTimeout(function () {
-					// Only retry if this is still the latest request
-					console.log(`Retrying latest failed request...`);
-					// console.log(event.detail);
-					const temp = triggeringElement.disabled;
-					triggeringElement.disabled = false;
-					// htmx.trigger(triggeringElement, 'retryRequest');
-					triggeringElement.click();
-					triggeringElement.disabled = temp;
-				}, 2000); // 2-second delay between retries
-			}
-		});
-
-	</script>
-
-</body>
-
-</html>
+</script>
+{{end}}
