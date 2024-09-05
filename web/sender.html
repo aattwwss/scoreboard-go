@@ -1,5 +1,56 @@
 {{block "content" .}}
-<h1>Server-Sent Events Example</h1>
+<h1>Handball Scoreboard</h1>
+<div class="match-name" id="match-name">Match RWS</div>
+
+{{template "scoreboard" .}}
+
+<div class="control-panel">
+	<div class="timer-controls">
+		<button hx-post="/api/match/start" hx-target="#messageResult" type="submit" id="start">Start</button>
+		<button hx-post="/api/match/stop" hx-target="#messageResult" type="submit" id="stop"
+			disabled>Stop</button>
+		<button hx-post="/api/match/reset" hx-target="#messageResult" type="submit" id="reset">Reset</button>
+	</div>
+	<fieldset class="manual-controls">
+		<legend>Override</legend>
+		<div class="manual-controllers">
+			<div class="team-controls home-controls">
+				<label for="home-name-input">Home Team Name</label>
+				<input type="text" id="home-name-input" name="homeName" value="Team ABC"
+					placeholder="Home Team Name" readonly>
+				<label for="home-score-input">Home Score</label>
+				<input type="text" id="home-score-input" name="homeScore" value="01"
+					placeholder="Home Score" readonly>
+			</div>
+			<div class="center-controls">
+				<label for="match-name-input">Match Name</label>
+				<input type="text" id="match-name-input" name="matchName" value="Match RWS"
+					placeholder="Match Name" readonly>
+				<label for="display-time-input">Display Time</label>
+				<input type="text" id="display-time-input" name="displayTimeInput" value="00:00"
+					placeholder="Display Time" readonly>
+				<input type="hidden" id="message-create-time" name="messageCreateTime" value="">
+				<input type="hidden" id="start-time" name="startTime" value="" readonly>
+			</div>
+			<div class="team-controls away-controls">
+				<label for="away-name-input">Away Team Name</label>
+				<input type="text" id="away-name-input" name="awayName" value="Team XYZ"
+					placeholder="Away Team Name" readonly>
+				<label for="away-score-input">Away Score</label>
+				<input type="text" id="away-score-input" name="awayScore" value="03"
+					placeholder="Away Score" readonly>
+			</div>
+		</div>
+		<!-- Edit controls for manual controllers -->
+		<div class="edit-controls">
+			<button id="edit-btn">Edit</button>
+			<button id="save-btn" disabled>Save</button>
+		</div>
+	</fieldset>
+</div>
+
+<div id="messageResult"></div>
+
 <div style="display: none;">
 	<form hx-post="/send" hx-target="#messageResult" hx-swap="innerHTML">
 		<label for="message">Enter text:</label>
@@ -8,25 +59,6 @@
 		<button type="submit">Submit</button>
 	</form>
 </div>
-<div id="messageResult"></div>
-
-<form>
-	<input type="text" id="match-name" name="matchName" value="Match RWS"><br>
-	<input type="text" id="display-time" name="displayTime" value="00:00"><br>
-	<input type="text" id="home-name" name="homeName" value="Team ABC"><br>
-	<input type="text" id="home-score" name="homeScore" value="01"><br>
-	<input type="text" id="away-name" name="awayName" value="Team XYZ"><br>
-	<input type="text" id="away-score" name="awayScore" value="033"><br>
-	<input readonly type="text" id="match-ID" name="matchID" value="{{.MatchID}}"><br>
-
-	<input type="hidden" id="message-create-time" name="messageCreateTime" value="">
-	<input type="hidden" id="start-time" name="startTime" value="">
-
-	<button hx-post="/api/match/start" hx-target="#response" type="submit" id="start">Start</button>
-	<button hx-post="/api/match/stop" hx-target="#response" type="submit" id="stop" disabled>Stop</button>
-	<button hx-post="/api/match/reset" hx-target="#response" type="submit" id="reset">Reset</button>
-</form>
-<div id="response"></div>
 <script>
 
 	// TODO: store all these in localstorage to preserve the state upon refresh
@@ -35,12 +67,28 @@
 	let timerInterval;
 
 	const displayTime = document.getElementById('display-time');
+	const displayTimeInput = document.getElementById('display-time-input');
+
+	const homeName = document.getElementById('home-name');
+	const homeNameInput = document.getElementById('home-name-input');
+	const homeScore = document.getElementById('home-score');
+	const homeScoreInput = document.getElementById('home-score-input');
+
+	const awayName = document.getElementById('away-name');
+	const awayNameInput = document.getElementById('away-name-input');
+	const awayScore = document.getElementById('away-score');
+	const awayScoreInput = document.getElementById('away-score-input');
+
 	const startButton = document.getElementById('start');
 	const stopButton = document.getElementById('stop');
 	const resetButton = document.getElementById('reset');
 
 	const messageCreateTimeInput = document.getElementById('message-create-time');
 	const startTimeInput = document.getElementById('start-time');
+
+	const manualInputs = document.querySelectorAll('.manual-controllers input[type="text"]');
+	const editBtn = document.getElementById('edit-btn');
+	const saveBtn = document.getElementById('save-btn');
 
 	function start() {
 		console.log("START!");
@@ -75,7 +123,8 @@
 		clearInterval(timerInterval);
 		timerInterval = null;
 		elapsedTime = 0;
-		displayTime.value = '00:00'
+		displayTime.textContent = '00:00'
+		displayTimeInput.value = '00:00'
 		startButton.disabled = false;
 		stopButton.disabled = true;
 		messageCreateTimeInput.value = now;
@@ -89,8 +138,10 @@
 		const seconds = Math.floor((elapsedTime % 60000) / 1000);
 		const milliseconds = Math.floor((elapsedTime % 1000) / 10);
 
-		const timeString = `${pad(minutes, 2)}:${pad(seconds, 2)}:${pad(milliseconds, 2)}`;
-		displayTime.value = timeString;
+		// const timeString = `${pad(minutes, 2)}:${pad(seconds, 2)}:${pad(milliseconds, 2)}`;
+		const timeString = `${pad(minutes, 2)}:${pad(seconds, 2)}`;
+		displayTimeInput.value = timeString;
+		displayTime.textContent = timeString;
 	}
 
 	function pad(number, n) {
@@ -127,6 +178,108 @@
 			}, 2000); // 2-second delay between retries
 		}
 	});
+
+	// Function to toggle edit mode
+	function toggleEditMode(editable) {
+		manualInputs.forEach(input => {
+			input.readOnly = !editable;
+		});
+		editBtn.disabled = editable;
+		saveBtn.disabled = !editable;
+	}
+
+	// Select first character when input receives focus
+	displayTimeInput.addEventListener('focus', (event) => {
+		setTimeout(() => {
+			event.target.setSelectionRange(0, 0);
+		}, 0);
+	});
+
+	// Handle keypress events
+	displayTimeInput.addEventListener('keydown', (event) => {
+		const input = event.target;
+		const value = input.value;
+		let cursorPosition = input.selectionStart;
+
+		// Allow only numbers, colon, backspace, and arrow keys
+		if (!/[\d:]/.test(event.key) && !['Backspace', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+			event.preventDefault();
+			return;
+		}
+
+		// Handle backspace key
+		if (event.key === 'Backspace') {
+			event.preventDefault();
+			if (cursorPosition > 0 && cursorPosition !== 3) {
+				let newPosition = cursorPosition - 1;
+				if (newPosition === 2) newPosition = 1; // Skip over the colon
+				let newValue = value.split('');
+				newValue[newPosition] = '0';
+				input.value = newValue.join('');
+				input.setSelectionRange(newPosition, newPosition);
+			}
+			return;
+		}
+
+		if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+			event.preventDefault();
+			if (event.key === 'ArrowLeft') {
+				cursorPosition = cursorPosition > 0 ? cursorPosition - 1 : 0;
+				if (cursorPosition === 2) cursorPosition = 1; // Skip colon when moving left
+			} else { // ArrowRight
+				cursorPosition = cursorPosition < 4 ? cursorPosition + 1 : 4;
+				if (cursorPosition === 2) cursorPosition = 3; // Skip colon when moving right
+			}
+			input.setSelectionRange(cursorPosition, cursorPosition);
+			return;
+		}
+
+		// Prevent overwriting the colon
+		if (cursorPosition === 2 && event.key !== ':') {
+			event.preventDefault();
+			return;
+		}
+
+		// Auto-advance cursor and maintain format
+		event.preventDefault();
+		let newValue = value.split('');
+		newValue[cursorPosition] = event.key;
+		input.value = newValue.join('');
+
+		// Move cursor to next position, wrapping around if necessary
+		let nextPosition = (cursorPosition + 1) % 5;
+		if (nextPosition === 2) nextPosition = 3; // Skip over the colon
+		input.setSelectionRange(nextPosition, nextPosition);
+	});
+
+	// Ensure proper initial format
+	displayTimeInput.addEventListener('blur', (event) => {
+		const input = event.target;
+		const [minutes, seconds] = input.value.split(':');
+		input.value = `${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}`;
+	});
+
+	// Edit button click handler
+	editBtn.addEventListener('click', () => {
+		toggleEditMode(true);
+	});
+
+	// Save button click handler
+	saveBtn.addEventListener('click', () => {
+		toggleEditMode(false);
+		saveChanges();
+	});
+
+	function saveChanges() {
+		// map manual inputs back into the scoreboard
+		// and send event to update
+		console.log('Saving changes...');
+		displayTime.textContent = displayTimeInput.value;
+		homeName.textContent = homeNameInput.value;
+		awayName.textContent = awayNameInput.value;
+		homeScore.textContent = homeScoreInput.value;
+		awayScore.textContent = awayScoreInput.value;
+	}
 
 </script>
 {{end}}

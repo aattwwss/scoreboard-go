@@ -120,7 +120,7 @@ func listenerHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, _ := template.ParseFS(adjustedWeb, "base.html", "sender.html")
+	tmpl, _ := template.ParseFS(adjustedWeb, "base.html", "sender.html", "scoreboard.html")
 
 	tmpl.Execute(w, map[string]string{
 		"MatchID": uuid.New().String(),
@@ -170,7 +170,7 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	fs := http.FileServer(http.Dir("./static"))
+	fs := http.FileServer(http.Dir("./web/static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 	mux.HandleFunc("/stop", func(w http.ResponseWriter, _ *http.Request) {
 		cancel()
