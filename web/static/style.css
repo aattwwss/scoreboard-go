@@ -47,6 +47,13 @@ h1 {
 	font-weight: bold;
 }
 
+.match-info {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width: 30%;
+}
+
 .timer {
 	font-size: 2.5em;
 	font-weight: bold;
@@ -119,7 +126,9 @@ label {
 	margin-top: 20px;
 }
 
+
 #edit-btn,
+#cancel-btn,
 #save-btn {
 	padding: 10px 20px;
 	margin: 0 10px;
@@ -132,6 +141,11 @@ label {
 
 #edit-btn {
 	background-color: #4CAF50;
+	color: white;
+}
+
+#cancel-btn {
+	background-color: #f44336;
 	color: white;
 }
 

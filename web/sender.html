@@ -1,6 +1,5 @@
 {{block "content" .}}
-<h1>Handball Scoreboard</h1>
-<div class="match-name" id="match-name">Match RWS</div>
+<h1>Scoreboard</h1>
 
 {{template "scoreboard" .}}
 
@@ -12,19 +11,19 @@
 		<button hx-post="/api/match/reset" hx-target="#messageResult" type="submit" id="reset">Reset</button>
 	</div>
 	<fieldset class="manual-controls">
-		<legend>Override</legend>
+		<legend>Teams Settings</legend>
 		<div class="manual-controllers">
 			<div class="team-controls home-controls">
 				<label for="home-name-input">Home Team Name</label>
-				<input type="text" id="home-name-input" name="homeName" value="Team ABC"
+				<input type="text" id="home-name-input" name="homeName" value="Home"
 					placeholder="Home Team Name" readonly>
 				<label for="home-score-input">Home Score</label>
-				<input type="text" id="home-score-input" name="homeScore" value="01"
+				<input type="text" id="home-score-input" name="homeScore" value="0"
 					placeholder="Home Score" readonly>
 			</div>
 			<div class="center-controls">
 				<label for="match-name-input">Match Name</label>
-				<input type="text" id="match-name-input" name="matchName" value="Match RWS"
+				<input type="text" id="match-name-input" name="matchName" value=""
 					placeholder="Match Name" readonly>
 				<label for="display-time-input">Display Time</label>
 				<input type="text" id="display-time-input" name="displayTimeInput" value="00:00"
@@ -34,16 +33,17 @@
 			</div>
 			<div class="team-controls away-controls">
 				<label for="away-name-input">Away Team Name</label>
-				<input type="text" id="away-name-input" name="awayName" value="Team XYZ"
+				<input type="text" id="away-name-input" name="awayName" value="Away"
 					placeholder="Away Team Name" readonly>
 				<label for="away-score-input">Away Score</label>
-				<input type="text" id="away-score-input" name="awayScore" value="03"
+				<input type="text" id="away-score-input" name="awayScore" value="0"
 					placeholder="Away Score" readonly>
 			</div>
 		</div>
 		<!-- Edit controls for manual controllers -->
 		<div class="edit-controls">
 			<button id="edit-btn">Edit</button>
+			<button id="cancel-btn" style='display: none;'>Cancel</button>
 			<button id="save-btn" disabled>Save</button>
 		</div>
 	</fieldset>
@@ -66,6 +66,10 @@
 	let elapsedTime = 0;
 	let timerInterval;
 
+
+
+	const matchName = document.getElementById('match-name');
+	const matchNameInput = document.getElementById('match-name-input');
 	const displayTime = document.getElementById('display-time');
 	const displayTimeInput = document.getElementById('display-time-input');
 
@@ -88,6 +92,7 @@
 
 	const manualInputs = document.querySelectorAll('.manual-controllers input[type="text"]');
 	const editBtn = document.getElementById('edit-btn');
+	const cancelBtn = document.getElementById('cancel-btn');
 	const saveBtn = document.getElementById('save-btn');
 
 	function start() {
@@ -179,6 +184,7 @@
 		}
 	});
 
+
 	// Function to toggle edit mode
 	function toggleEditMode(editable) {
 		manualInputs.forEach(input => {
@@ -186,6 +192,17 @@
 		});
 		editBtn.disabled = editable;
 		saveBtn.disabled = !editable;
+
+		editBtn.style.display = editable ? 'none' : '';
+		cancelBtn.style.display = !editable ? 'none' : '';
+	}
+
+	homeScoreInput.addEventListener('input', numberInput);
+	awayScoreInput.addEventListener('input', numberInput);
+
+	// only allow digits, defaults to 0 and do not allow leading zeroes.
+	function numberInput(event) {
+		event.target.value = parseInt(event.target.value.replace(/\D/g, '') || 0);
 	}
 
 	// Select first character when input receives focus
@@ -227,7 +244,7 @@
 				cursorPosition = cursorPosition > 0 ? cursorPosition - 1 : 0;
 				if (cursorPosition === 2) cursorPosition = 1; // Skip colon when moving left
 			} else { // ArrowRight
-				cursorPosition = cursorPosition < 4 ? cursorPosition + 1 : 4;
+				cursorPosition = cursorPosition < 5 ? cursorPosition + 1 : 5;
 				if (cursorPosition === 2) cursorPosition = 3; // Skip colon when moving right
 			}
 			input.setSelectionRange(cursorPosition, cursorPosition);
@@ -259,21 +276,37 @@
 		input.value = `${minutes.padStart(2, '0')}:${seconds.padStart(2, '0')}`;
 	});
 
+	let originalInputs = {};
+
 	// Edit button click handler
 	editBtn.addEventListener('click', () => {
+		manualInputs.forEach(input => {
+			originalInputs[input.id] = input.value;
+		});
 		toggleEditMode(true);
+	});
+
+	// Cancel button click handler
+	cancelBtn.addEventListener('click', () => {
+		manualInputs.forEach(input => {
+			input.value = originalInputs[input.id];
+		});
+		toggleEditMode(false);
 	});
 
 	// Save button click handler
 	saveBtn.addEventListener('click', () => {
-		toggleEditMode(false);
-		saveChanges();
+		if (confirm("Are you sure you want to save these changes?")) {
+			toggleEditMode(false);
+			saveChanges();
+		}
 	});
 
 	function saveChanges() {
 		// map manual inputs back into the scoreboard
 		// and send event to update
 		console.log('Saving changes...');
+		matchName.textContent = matchNameInput.value;
 		displayTime.textContent = displayTimeInput.value;
 		homeName.textContent = homeNameInput.value;
 		awayName.textContent = awayNameInput.value;
