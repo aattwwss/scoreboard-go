@@ -1,135 +1,140 @@
-{{block "content" .}}
-<h1>Server-Sent Events Example</h1>
-<div id="match-name"> </div>
-<div id="display">00:00</div>
+<!DOCTYPE html>
+<html lang="en">
 
-<div id="home-name"> </div>
-<div id="home-score">0</div>
-<div id="away-name"> </div>
-<div id="away-score">0</div>
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Scoreboard Online</title>
+	<link rel="stylesheet" href="/static/listener.css">
+</head>
 
-<script>
+<body>
+	{{template "scoreboard" .}}
+	<script>
 
-	let startTime;
-	let timerInterval;
-	let initialised = false;
+		let startTime;
+		let timerInterval;
+		let initialised = false;
 
-	const matchNameEle = document.getElementById('match-name');
-	const display = document.getElementById('display');
-	const homeNameEle = document.getElementById('home-name');
-	const homeScoreEle = document.getElementById('home-score');
-	const awayNameEle = document.getElementById('away-name');
-	const awayScoreEle = document.getElementById('away-score');
+		const matchNameEle = document.getElementById('match-name');
+		const displayTime = document.getElementById('display-time');
+		const homeNameEle = document.getElementById('home-name');
+		const homeScoreEle = document.getElementById('home-score');
+		const awayNameEle = document.getElementById('away-name');
+		const awayScoreEle = document.getElementById('away-score');
 
-	function start(timerState) {
-		startTime = timerState.startTime;
-		timerInterval = setInterval(updateDisplay, 1);
-		initialised = true;
-	}
-
-	function stop(timerState) {
-		clearInterval(timerInterval);
-		timerInterval = null;
-		initialised = true;
-	}
-
-	function reset(timerState) {
-		clearInterval(timerInterval);
-		timerInterval = null;
-		initialised = true;
-	}
-
-	function updateDisplay() {
-		const elapsedTime = Date.now() - startTime;
-		const minutes = Math.floor(elapsedTime / 60000);
-		const seconds = Math.floor((elapsedTime % 60000) / 1000);
-		const milliseconds = Math.floor((elapsedTime % 1000) / 10);
-
-		const timeString = `${pad(minutes)}:${pad(seconds)}:${pad(milliseconds)}`;
-		display.textContent = timeString;
-	}
-
-	function pad(number) {
-		return number.toString().padStart(2, '0');
-	}
-
-	const eventsContainer = document.getElementById('events');
-	const urlParams = new URLSearchParams(window.location.search);
-	const matchID = urlParams.get('matchID');
-	console.log(`matchID: ${matchID}`);
-
-	const eventSource = new EventSource(`http://192.168.1.186:8080/events?matchID=${matchID}`);
-	eventSource.onopen = function () {
-		console.log('Connection opened');
-	};
-
-	eventSource.onmessage = handleDefault;
-	eventSource.onerror = function (error) {
-		console.log(error);
-	};
-
-	eventSource.addEventListener('START', handler(start))
-	eventSource.addEventListener('STOP', handler(stop))
-	eventSource.addEventListener('RESET', handler(reset))
-	eventSource.addEventListener('INIT', handleInit)
-
-	function handler(eventHandler) {
-		return function (event) {
-			console.log(`${event.type}: ${event.data}`);
-			const json = JSON.parse(event.data);
-			homeNameEle.textContent = json.homeName;
-			homeScoreEle.textContent = json.homeScore;
-			awayNameEle.textContent = json.awayName;
-			awayScoreEle.textContent = json.awayScore;
-			display.textContent = json.displayTime;
-			matchNameEle.textContent = json.matchName;
-			eventHandler(json);
+		function start(timerState) {
+			startTime = timerState.startTime;
+			timerInterval = setInterval(updateDisplay, 1);
+			initialised = true;
 		}
-	}
 
-	function handleClose(event) {
-		console.log('closed');
-		eventSource.close();
-	}
+		function stop(timerState) {
+			clearInterval(timerInterval);
+			timerInterval = null;
+			initialised = true;
+		}
 
-	function handleStart(event) {
-		start(JSON.parse(event.data));
-		console.log(`start: ${event.data}`);
-	}
+		function reset(timerState) {
+			clearInterval(timerInterval);
+			timerInterval = null;
+			initialised = true;
+		}
 
-	function handleStop(event) {
-		stop(JSON.parse(event.data));
-		console.log(`stop: ${event.data}`);
-	}
+		function updateDisplay() {
+			const elapsedTime = Date.now() - startTime;
+			const minutes = Math.floor(elapsedTime / 60000);
+			const seconds = Math.floor((elapsedTime % 60000) / 1000);
+			const milliseconds = Math.floor((elapsedTime % 1000) / 10);
 
-	function handleReset(event) {
-		reset(JSON.parse(event.data));
-		console.log(`reset: ${event.data}`);
-	}
+			// const timeString = `${pad(minutes)}:${pad(seconds)}:${pad(milliseconds)}`;
+			const timeString = `${pad(minutes)}:${pad(seconds)}`;
+			displayTime.textContent = timeString;
+		}
 
-	function handleDefault(event) {
-		console.log(`default: ${event.data}`);
-	}
+		function pad(number) {
+			return number.toString().padStart(2, '0');
+		}
 
-	function handleInit(event) {
-		if (!initialised) {
-			console.log(`init: ${event.data}`);
-			let data = JSON.parse(event.data);
-			switch (data.action) {
-				case 'START':
-					start(data);
-					break;
-				case 'STOP':
-					stop(data);
-					break;
-				case 'RESET':
-					reset(data);
-					break;
-				default:
-					console.log("unknown init event");
+		const eventsContainer = document.getElementById('events');
+		const urlParams = new URLSearchParams(window.location.search);
+		const matchID = urlParams.get('matchID');
+		console.log(`matchID: ${matchID}`);
+
+		const eventSource = new EventSource(`http://192.168.1.186:8080/events?matchID=${matchID}`);
+		eventSource.onopen = function () {
+			console.log('Connection opened');
+		};
+
+		eventSource.onmessage = handleDefault;
+		eventSource.onerror = function (error) {
+			console.log(error);
+		};
+
+		eventSource.addEventListener('START', handler(start))
+		eventSource.addEventListener('STOP', handler(stop))
+		eventSource.addEventListener('RESET', handler(reset))
+		eventSource.addEventListener('INIT', handleInit)
+
+		function handler(eventHandler) {
+			return function (event) {
+				console.log(`${event.type}: ${event.data}`);
+				const json = JSON.parse(event.data);
+				homeNameEle.textContent = json.homeName;
+				homeScoreEle.textContent = json.homeScore;
+				awayNameEle.textContent = json.awayName;
+				awayScoreEle.textContent = json.awayScore;
+				displayTime.textContent = json.displayTime;
+				matchNameEle.textContent = json.matchName;
+				eventHandler(json);
 			}
 		}
-	}
 
-</script>
-{{end}}
+		function handleClose(event) {
+			console.log('closed');
+			eventSource.close();
+		}
+
+		function handleStart(event) {
+			start(JSON.parse(event.data));
+			console.log(`start: ${event.data}`);
+		}
+
+		function handleStop(event) {
+			stop(JSON.parse(event.data));
+			console.log(`stop: ${event.data}`);
+		}
+
+		function handleReset(event) {
+			reset(JSON.parse(event.data));
+			console.log(`reset: ${event.data}`);
+		}
+
+		function handleDefault(event) {
+			console.log(`default: ${event.data}`);
+		}
+
+		function handleInit(event) {
+			if (!initialised) {
+				console.log(`init: ${event.data}`);
+				let data = JSON.parse(event.data);
+				switch (data.action) {
+					case 'START':
+						start(data);
+						break;
+					case 'STOP':
+						stop(data);
+						break;
+					case 'RESET':
+						reset(data);
+						break;
+					default:
+						console.log("unknown init event");
+				}
+			}
+		}
+
+	</script>
+</body>
+
+</html>

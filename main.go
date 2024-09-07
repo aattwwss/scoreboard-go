@@ -85,7 +85,12 @@ func sendHandler(w http.ResponseWriter, r *http.Request) {
 
 func actionHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	matchID := r.FormValue("matchID")
+	matchIDCookie, _ := r.Cookie("matchID")
+	if matchIDCookie == nil {
+		homeHandler(w, r)
+		return
+	}
+	matchID := matchIDCookie.Value
 	action := strings.ToUpper(r.PathValue("action"))
 	formData := map[string]string{
 		"action": action,
@@ -115,15 +120,23 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listenerHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, _ := template.ParseFS(adjustedWeb, "base.html", "listener.html")
+	tmpl, _ := template.ParseFS(adjustedWeb, "listener.html", "scoreboard.html")
 	tmpl.Execute(w, nil)
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl, _ := template.ParseFS(adjustedWeb, "base.html", "sender.html", "scoreboard.html")
+	cookie, _ := r.Cookie("matchID")
+	if cookie == nil {
+		cookie = &http.Cookie{
+			Name:  "matchID",
+			Value: uuid.NewString(),
+		}
+		http.SetCookie(w, cookie)
+	}
 
 	tmpl.Execute(w, map[string]string{
-		"MatchID": uuid.New().String(),
+		"MatchID": cookie.Value,
 	})
 }
 
