@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -92,31 +93,37 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	matchID := matchIDCookie.Value
 	action := strings.ToUpper(r.PathValue("action"))
-	formData := map[string]string{
-		"action": action,
-	}
-	for key, values := range r.Form {
-		if len(values) > 0 {
-			formData[key] = values[0]
-		}
-	}
-
-	jsonData, _ := json.Marshal(formData)
+	r.Form["action"] = []string{action}
 	messageID, _ := uuid.NewV7()
 	e := &sse.Message{
 		ID:    sse.ID(messageID.String()),
 		Type:  sse.Type(action),
 		Retry: time.Duration(1 * time.Second),
 	}
-	e.AppendData(string(jsonData))
+	messageString := formToJsonString(r.Form)
+	e.AppendData(messageString)
 	err := sseHandler.Publish(e, matchID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error"))
 	}
-	log.Println(fmt.Sprintf("actionHandler data: %s", string(jsonData)))
+	log.Println(fmt.Sprintf("actionHandler data: %s", messageString))
 	lastMatchMessage[matchID] = e
 	w.Write([]byte(action))
+}
+
+// formToJsonString returns the first value of each form as a json key value
+// only support single value for each key
+func formToJsonString(form url.Values) string {
+	formData := map[string]string{}
+	for key, values := range form {
+		if len(values) > 0 {
+			formData[key] = values[0]
+		}
+	}
+
+	jsonData, _ := json.Marshal(formData)
+	return string(jsonData)
 }
 
 func listenerHandler(w http.ResponseWriter, r *http.Request) {

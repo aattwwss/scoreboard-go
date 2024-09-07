@@ -16,6 +16,12 @@
 		let timerInterval;
 		let initialised = false;
 
+		const TimerPrevAction = Object.freeze({
+			Stop: 'STOP',
+			Start: 'START',
+			Reset: 'RESET'
+		});
+
 		const matchNameEle = document.getElementById('match-name');
 		const displayTime = document.getElementById('display-time');
 		const homeNameEle = document.getElementById('home-name');
@@ -30,6 +36,7 @@
 		}
 
 		function stop(timerState) {
+			console.log("stop fo real");
 			clearInterval(timerInterval);
 			timerInterval = null;
 			initialised = true;
@@ -39,6 +46,20 @@
 			clearInterval(timerInterval);
 			timerInterval = null;
 			initialised = true;
+		}
+
+		function save(timerState) {
+			switch (timerState.timerPrevAction) {
+				case TimerPrevAction.Start:
+					start(timerState);
+					break;
+				case TimerPrevAction.Stop:
+					stop(timerState);
+					break;
+				case TimerPrevAction.Reset:
+					reset(timerState);
+					break;
+			}
 		}
 
 		function updateDisplay() {
@@ -66,7 +87,9 @@
 			console.log('Connection opened');
 		};
 
-		eventSource.onmessage = handleDefault;
+		eventSource.onmessage = function (event) {
+			console.log(`default: ${event.data}`);
+		};
 		eventSource.onerror = function (error) {
 			console.log(error);
 		};
@@ -74,7 +97,7 @@
 		eventSource.addEventListener('START', handler(start))
 		eventSource.addEventListener('STOP', handler(stop))
 		eventSource.addEventListener('RESET', handler(reset))
-		eventSource.addEventListener('INIT', handleInit)
+		eventSource.addEventListener('SAVE', handler(save))
 
 		function handler(eventHandler) {
 			return function (event) {
@@ -87,50 +110,6 @@
 				displayTime.textContent = json.displayTime;
 				matchNameEle.textContent = json.matchName;
 				eventHandler(json);
-			}
-		}
-
-		function handleClose(event) {
-			console.log('closed');
-			eventSource.close();
-		}
-
-		function handleStart(event) {
-			start(JSON.parse(event.data));
-			console.log(`start: ${event.data}`);
-		}
-
-		function handleStop(event) {
-			stop(JSON.parse(event.data));
-			console.log(`stop: ${event.data}`);
-		}
-
-		function handleReset(event) {
-			reset(JSON.parse(event.data));
-			console.log(`reset: ${event.data}`);
-		}
-
-		function handleDefault(event) {
-			console.log(`default: ${event.data}`);
-		}
-
-		function handleInit(event) {
-			if (!initialised) {
-				console.log(`init: ${event.data}`);
-				let data = JSON.parse(event.data);
-				switch (data.action) {
-					case 'START':
-						start(data);
-						break;
-					case 'STOP':
-						stop(data);
-						break;
-					case 'RESET':
-						reset(data);
-						break;
-					default:
-						console.log("unknown init event");
-				}
 			}
 		}
 
