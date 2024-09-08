@@ -30,13 +30,14 @@
 		const awayScoreEle = document.getElementById('away-score');
 
 		function start(timerState) {
-			startTime = timerState.startTime;
-			timerInterval = setInterval(updateDisplay, 1);
-			initialised = true;
+			if (!timerInterval) {
+				startTime = timerState.startTime;
+				timerInterval = setInterval(updateDisplay, 1000);
+				initialised = true;
+			}
 		}
 
 		function stop(timerState) {
-			console.log("stop fo real");
 			clearInterval(timerInterval);
 			timerInterval = null;
 			initialised = true;

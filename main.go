@@ -17,6 +17,8 @@ import (
 	"text/template"
 	"time"
 
+	"crypto/md5"
+	"encoding/hex"
 	"github.com/google/uuid"
 	"github.com/tmaxmax/go-sse"
 )
@@ -91,7 +93,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		homeHandler(w, r)
 		return
 	}
-	matchID := matchIDCookie.Value
+	matchIDHashed := getMD5Hash(matchIDCookie.Value)
 	action := strings.ToUpper(r.PathValue("action"))
 	r.Form["action"] = []string{action}
 	messageID, _ := uuid.NewV7()
@@ -102,13 +104,13 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	messageString := formToJsonString(r.Form)
 	e.AppendData(messageString)
-	err := sseHandler.Publish(e, matchID)
+	err := sseHandler.Publish(e, matchIDHashed)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("error"))
 	}
 	log.Println(fmt.Sprintf("actionHandler data: %s", messageString))
-	lastMatchMessage[matchID] = e
+	lastMatchMessage[matchIDHashed] = e
 	w.Write([]byte(action))
 }
 
@@ -143,7 +145,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.Execute(w, map[string]string{
-		"MatchID": cookie.Value,
+		"MatchID": getMD5Hash(cookie.Value),
 	})
 }
 
@@ -250,4 +252,9 @@ func runServer(ctx context.Context, s *http.Server) error {
 	}
 
 	return <-shutdownError
+}
+
+func getMD5Hash(text string) string {
+	hash := md5.Sum([]byte(text))
+	return hex.EncodeToString(hash[:])
 }

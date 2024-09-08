@@ -4,9 +4,6 @@
 {{template "scoreboard" .}}
 
 <form class="control-panel">
-	<input type="hidden" id="message-create-time" name="messageCreateTime" value="">
-	<input type="hidden" id="start-time" name="startTime" value="" readonly>
-	<input type="hidden" id="timer-prev-action" name="timerPrevAction" value="STOP">
 	<div class="timer-controls">
 		<button hx-post="/api/match/start" hx-target="#messageResult" type="submit" id="start">Start</button>
 		<button hx-post="/api/match/stop" hx-target="#messageResult" type="submit" id="stop"
@@ -16,6 +13,10 @@
 	<fieldset class="manual-controls">
 		<legend>Teams Settings</legend>
 		<div class="manual-controllers">
+			<input type="hidden" id="message-create-time" name="messageCreateTime" value="">
+			<input type="hidden" id="start-time" name="startTime" value="" readonly>
+			<input type="hidden" id="stop-time" name="stopTime" value="" readonly>
+			<input type="hidden" id="timer-prev-action" name="timerPrevAction" value="STOP">
 			<div class="team-controls home-controls">
 				<label for="home-name-input">Home Team Name</label>
 				<input type="text" id="home-name-input" name="homeName" value="Home"
@@ -65,8 +66,6 @@
 <script>
 
 	// TODO: store all these in localstorage to preserve the state upon refresh
-	let startTime;
-	let elapsedTime = 0;
 	let timerInterval;
 
 	const TimerPrevAction = Object.freeze({
@@ -96,25 +95,32 @@
 	const stopButton = document.getElementById('stop');
 	const resetButton = document.getElementById('reset');
 
-	const messageCreateTimeInput = document.getElementById('message-create-time');
-	const startTimeInput = document.getElementById('start-time');
+	const messageCreateTimeHidden = document.getElementById('message-create-time');
+	const startTimeHidden = document.getElementById('start-time');
+	const stopTimeHidden = document.getElementById('stop-time');
 
-	const manualInputs = document.querySelectorAll('.manual-controllers input[type="text"]');
+	const manualInputs = document.querySelectorAll('.manual-controllers input');
 	const editBtn = document.getElementById('edit-btn');
 	const cancelBtn = document.getElementById('cancel-btn');
 	const saveBtn = document.getElementById('save-btn');
 
 	function start() {
+		// FIX: When timer is running, and page refresh, timer stops and starts at negative value
 		console.log("START!");
 		timerPrevAction.value = TimerPrevAction.Start;
 		if (!timerInterval) {
+			const prevStartTime = parseInt(startTimeHidden.value);
+			const stopTime = parseInt(stopTimeHidden.value);
+			let elapsedTime = stopTime - prevStartTime;
 			now = Date.now();
-			startTime = now - elapsedTime;
-			timerInterval = setInterval(updateDisplay, 1);
+			const timePaused = now - stopTime;
 			startButton.disabled = true;
 			stopButton.disabled = false;
-			messageCreateTimeInput.value = now;
-			startTimeInput.value = startTime;
+			messageCreateTimeHidden.value = now;
+			startTimeHidden.value = prevStartTime + timePaused; // offset the previous start time with the time that was paused
+			console.log(now === prevStartTime + timePaused);
+			timerInterval = setInterval(updateDisplay, 1);
+			persistChanges();
 		}
 	}
 
@@ -122,14 +128,15 @@
 		console.log("STOP!");
 		timerPrevAction.value = TimerPrevAction.Stop;
 		if (timerInterval) {
+			const startTime = parseInt(startTimeHidden.value);
 			now = Date.now();
 			clearInterval(timerInterval);
-			elapsedTime = now - startTime;
 			timerInterval = null;
 			stopButton.disabled = true;
 			startButton.disabled = false;
-			messageCreateTimeInput.value = now;
-			startTimeInput.value = startTime;
+			messageCreateTimeHidden.value = now;
+			stopTimeHidden.value = now;
+			persistChanges();
 		}
 	}
 
@@ -139,16 +146,18 @@
 		now = Date.now();
 		clearInterval(timerInterval);
 		timerInterval = null;
-		elapsedTime = 0;
 		displayTime.textContent = '00:00'
 		displayTimeInput.value = '00:00'
 		startButton.disabled = false;
 		stopButton.disabled = true;
-		messageCreateTimeInput.value = now;
-		startTimeInput.value = startTime;
+		messageCreateTimeHidden.value = now;
+		startTimeHidden.value = 0;
+		stopTimeHidden.value = 0;
+		persistChanges();
 	}
 
 	function updateDisplay() {
+		const startTime = startTimeHidden.value;
 		const elapsedTime = Date.now() - startTime;
 		// console.log(elapsedTime);
 		const minutes = Math.floor(elapsedTime / 60000);
@@ -195,7 +204,6 @@
 			}, 2000); // 2-second delay between retries
 		}
 	});
-
 
 	// Function to toggle edit mode
 	function toggleEditMode(editable) {
@@ -311,21 +319,20 @@
 		if (confirm("Are you sure you want to save these changes?")) {
 			toggleEditMode(false);
 			persistChanges();
-			saveChanges();
+			syncToScoreboard();
 		}
 	});
 
+	// save the inputs in manual control to localstorage
+	// save the timer states to localstorage
 	function persistChanges() {
 		manualInputs.forEach(input => {
-			input.addEventListener('input', function () {
-				localStorage.setItem(this.id, this.value);
-			});
+			localStorage.setItem(input.id, input.value);
 		});
 	}
 
-	function saveChanges() {
-		// map manual inputs back into the scoreboard
-		// and send event to update
+	// map manual inputs back into the scoreboard
+	function syncToScoreboard() {
 		console.log('Saving changes...');
 		matchName.textContent = matchNameInput.value;
 		displayTime.textContent = displayTimeInput.value;
@@ -340,10 +347,11 @@
 		manualInputs.forEach(input => {
 			const savedValue = localStorage.getItem(input.id);
 			if (savedValue) {
+				console.log(input.id + ": " + savedValue);
 				input.value = savedValue;
 			}
 		});
-		saveChanges();
+		syncToScoreboard();
 	});
 
 </script>
