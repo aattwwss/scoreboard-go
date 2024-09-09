@@ -100,6 +100,7 @@
 	const stopTimeHidden = document.getElementById('stop-time');
 
 	const manualInputs = document.querySelectorAll('.manual-controllers input');
+	const scoreboard = document.querySelectorAll('.manual-controllers input');
 	const editBtn = document.getElementById('edit-btn');
 	const cancelBtn = document.getElementById('cancel-btn');
 	const saveBtn = document.getElementById('save-btn');
@@ -120,26 +121,22 @@
 			stopButton.disabled = false;
 			messageCreateTimeHidden.value = now;
 			startTimeHidden.value = prevStartTime + timePaused; // offset the previous start time with the time that was paused
-			console.log(now === prevStartTime + timePaused);
 			timerInterval = setInterval(updateDisplay, 1);
-			persistChanges();
+			persistManualInputs();
 		}
 	}
 
 	function stop() {
 		console.log("STOP!");
 		timerPrevAction.value = TimerPrevAction.Stop;
-		if (timerInterval) {
-			const startTime = parseInt(startTimeHidden.value);
-			now = Date.now();
-			clearInterval(timerInterval);
-			timerInterval = null;
-			stopButton.disabled = true;
-			startButton.disabled = false;
-			messageCreateTimeHidden.value = now;
-			stopTimeHidden.value = now;
-			persistChanges();
-		}
+		now = Date.now();
+		clearInterval(timerInterval);
+		timerInterval = null;
+		stopButton.disabled = true;
+		startButton.disabled = false;
+		messageCreateTimeHidden.value = now;
+		stopTimeHidden.value = now;
+		persistManualInputs();
 	}
 
 	function reset() {
@@ -155,7 +152,7 @@
 		messageCreateTimeHidden.value = now;
 		startTimeHidden.value = 0;
 		stopTimeHidden.value = 0;
-		persistChanges();
+		persistManualInputs();
 	}
 
 	function updateDisplay() {
@@ -188,6 +185,7 @@
 			clearTimeout(retryTimeoutId);
 		}
 	})
+
 	document.addEventListener('htmx:afterRequest', function (event) {
 		// TODO: Should only retry requests that impact the match state
 		if (event.detail.xhr.status === 0) {
@@ -320,18 +318,37 @@
 	saveBtn.addEventListener('click', () => {
 		if (confirm("Are you sure you want to save these changes?")) {
 			toggleEditMode(false);
-			persistChanges();
+			persistManualInputs();
 			syncToScoreboard();
 		}
 	});
 
 	// save the inputs in manual control to localstorage
 	// save the timer states to localstorage
-	function persistChanges() {
+	function persistManualInputs() {
 		manualInputs.forEach(input => {
 			localStorage.setItem(input.id, input.value);
 		});
 	}
+
+	function loadManualInputs() {
+		manualInputs.forEach(input => {
+			input.value = localStorage.getItem(input.id);
+		});
+	}
+
+	function updateElapsedTime() {
+		if (isTimerRunning()) {
+			const startTime = parseInt(startTimeHidden.value);
+			// console.log("start time: " + startTime);
+			const elapsedTime = Date.now() - startTime;
+			localStorage.setItem("elapsed-time", elapsedTime);
+			localStorage.setItem(displayTimeInput.id, displayTimeInput.value);
+		}
+	}
+
+	// update and persist the elapsed time and current display time periodically 
+	setInterval(updateElapsedTime, 200);
 
 	// map manual inputs back into the scoreboard
 	function syncToScoreboard() {
@@ -344,21 +361,42 @@
 		awayScore.textContent = awayScoreInput.value;
 	}
 
-	// Restore saved values on page load
 	window.addEventListener('load', function () {
+
+		// 1. Restore saved values on page load
 		manualInputs.forEach(input => {
 			const savedValue = localStorage.getItem(input.id);
 			if (savedValue) {
-				console.log(input.id + ": " + savedValue);
+				// console.log(input.id + ": " + savedValue);
 				input.value = savedValue;
 			}
 		});
 		syncToScoreboard();
+
+		// 2. update the listener link with the correct origin
+		originSpan.textContent = getOrigin();
+		console.log("is timer running: " + isTimerRunning());
+
+		// 3. restore timer if timer was running when the application quit.
+		if (isTimerRunning()) {
+			forceStop();
+			elapsedTime = parseInt(localStorage.getItem("elapsed-time"));
+			stopTimeHidden.value = Date.now();
+			startTimeHidden.value = Date.now() - elapsedTime;
+			updateDisplay();
+		}
 	});
 
-	document.addEventListener('DOMContentLoaded', function () {
-		originSpan.textContent = getOrigin();
-	});
+	// timer is running if the prev action is START
+	function isTimerRunning() {
+		return timerPrevAction.value === TimerPrevAction.Start;
+	}
+
+	function forceStop() {
+		const prevAction = timerPrevAction.value;
+		stopButton.click();
+		timerPrevAction.value = prevAction;
+	}
 
 </script>
 {{end}}

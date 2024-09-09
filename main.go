@@ -210,7 +210,7 @@ func main() {
 	mux.HandleFunc("GET /listen", listenerHandler)
 
 	s := &http.Server{
-		Addr:              "0.0.0.0:8080",
+		Addr:              ":8080",
 		ReadHeaderTimeout: time.Second * 1,
 		Handler:           useMiddleware(mux, recoveryMiddleware),
 	}
