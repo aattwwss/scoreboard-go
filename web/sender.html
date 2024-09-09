@@ -53,7 +53,7 @@
 </form>
 
 <div id="messageResult"></div>
-<div id="matchID">{{.MatchID}}</div>
+<div id="listener-url"><span id="origin"></span>/listen?matchID={{.MatchID}}</div>
 
 <div style="display: none;">
 	<form hx-post="/send" hx-target="#messageResult" hx-swap="innerHTML">
@@ -103,6 +103,8 @@
 	const editBtn = document.getElementById('edit-btn');
 	const cancelBtn = document.getElementById('cancel-btn');
 	const saveBtn = document.getElementById('save-btn');
+
+	const originSpan = document.getElementById('origin')
 
 	function start() {
 		// FIX: When timer is running, and page refresh, timer stops and starts at negative value
@@ -352,6 +354,10 @@
 			}
 		});
 		syncToScoreboard();
+	});
+
+	document.addEventListener('DOMContentLoaded', function () {
+		originSpan.textContent = getOrigin();
 	});
 
 </script>

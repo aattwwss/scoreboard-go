@@ -138,8 +138,11 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, _ := r.Cookie("matchID")
 	if cookie == nil {
 		cookie = &http.Cookie{
-			Name:  "matchID",
-			Value: uuid.NewString(),
+			Name:     "matchID",
+			Value:    uuid.NewString(),
+			SameSite: http.SameSiteStrictMode,
+			HttpOnly: true,
+			// Secure:   true, // TODO: Set this based on environment
 		}
 		http.SetCookie(w, cookie)
 	}
